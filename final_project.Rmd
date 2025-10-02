@@ -1,0 +1,80 @@
+---
+title: "final_project"
+author: "Joey Matte"
+date: "2024-12-09"
+output:
+  word_document: default
+  html_document: default
+---
+### Examine Data
+We are going to analyze Mlb player data. Specifically, we will examine players average annual salary as it relates to their team, position, and the number of years they have been playing. We will start by taking a look at the data.
+```{r}
+# load and look at data
+data = read.csv('salaries _mlb.csv')
+print(head(data))
+```
+
+```{r}
+# keep columns we are interested in
+data = data[c('avg_annual','team','pos','num_years')]
+# convert to factors
+facs = c('team','pos','num_years')
+data[,facs] = lapply(data[,facs],as.factor)
+```
+
+Lets examine the data graphically.
+```{r}
+library(ggplot2)
+library(gridExtra)
+t = ggplot(data,aes(team,avg_annual))+geom_boxplot(aes(fill=team),show.legend=FALSE) + labs(title='Team vs Average Annual Salary') + theme(axis.text.x = element_text(angle=90))
+p = ggplot(data,aes(pos,avg_annual))+geom_boxplot(aes(fill=pos),show.legend=FALSE) + labs(title='Position vs Average Annual Salary')
+yp = ggplot(data,aes(num_years,avg_annual))+geom_boxplot(aes(fill=num_years),show.legend=FALSE) + labs(title='Years Played vs Average Annual Salary')
+grid.arrange(t, p, yp)
+```
+
+We can see that there are lots of outliers in our data, which we will need to keep in mind. This may be due to teams paying star players much more than others. Since there are quite a bit of them, it doesn't make sense to drop them from our data set.
+
+### Interaction Plots
+Visualize the interactions between factors.
+```{r}
+with(data, interaction.plot(team, pos, avg_annual, type = 'b', col = 10:12, pch = 19, fixed = T, xlab = 'Team', ylab = 'avg_annual'))
+with(data, interaction.plot(team, num_years, avg_annual, type = 'b', col = 10:12, pch = 19, fixed = T, xlab = 'Team', ylab = 'avg_annual'))
+with(data, interaction.plot(num_years, pos, avg_annual, type = 'b', col = 10:12, pch = 19, fixed = T, xlab = 'num_years', ylab = 'avg_annual'))
+```
+
+From our plots, we can see that none of the factors are parallel to another, which tells us there is likely a significant interaction between all of them that affects the average annual salary.
+
+### ANOVA
+Next, we will run an ANOVA model including all interactions between factors in order to see which factors and interactions are important in predicting a players annual average salary.
+```{r}
+aov_model = aov(avg_annual~.^3,data)
+summary(aov_model)
+```
+
+From our model, all factors and their interactions are significant, meaning a change in each one has a significant effect on the average annual salary, so all should be kept in the model.
+
+### Assumptions
+1) Independence: Residuals are roughly evenly spread about the line, showing there is no non-linear relationship.
+2) Homoscedasticity: Residuals are roughly evenly spread, showing homoscedasticity.
+3) Normality of residuals: The relationship between theoretical and standardized looks to be mostly linear, with skews at the highest and lowest values, however, this is likely due to the outliers, so we will assume that our assumption holds.
+```{r}
+plot(aov_model)
+```
+
+### Linear Model and Predictions
+```{r}
+# build linear model
+lm_model = lm(avg_annual~.^3,data)
+# use model to predict avg annual salary
+predicted = predict(lm_model, data[c('team','pos','num_years')])
+```
+```{r}
+# graph predicted vs actual avg annual salary
+plot(predicted,col='blue',ylab = 'Avg Annual Salary', main = 'Predicted vs Actual')
+points(data['avg_annual'],col=rgb(1,0,0,alpha=0.2))
+```
+
+### Conclusions
+In analyzing the MLB salary data, we have found that the variables team, position, number of years played, and all of the second and third order interactions between these variables all have a significant effect on the average annual salary of a player. Using this information, and after looking at our model assumptions, we created a linear model to try and predict a players average annual salary based on their team, position, number of years played, and all interactions. The amount of outliers in the data makes this difficult, and our model only explains 42% of the variability in the data largely due to this. Even so, we were able to make a model that predicts the average annual salary decently well, as can be seen in the graph titled 'Predicted vs Actual'.
+
+
